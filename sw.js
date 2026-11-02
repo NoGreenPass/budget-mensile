@@ -1,5 +1,5 @@
 // Budget mensile — service worker: works offline, updates the page when online.
-const VERSION = 'budget-v2';
+const VERSION = 'budget-v3';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest',
   'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'favicon-32.png',

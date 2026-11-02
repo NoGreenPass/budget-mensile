@@ -375,6 +375,14 @@ body.on-budget .toast { bottom: calc(168px + env(safe-area-inset-bottom, 0px)); 
 .primary.danger-fill { background: var(--bad); color: #fff; }
 .welcome { gap: 14px; }
 .welcome .sec-title { font-size: 24px; }
+.install { gap: 12px; }
+.install-row { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.install-row > div { min-width: 0; display: grid; gap: 3px; }
+.install-row b { font-size: 16px; }
+.install-icon { width: 52px; height: 52px; border-radius: 13px; flex: none; box-shadow: var(--shadow); }
+.install-actions { display: flex; gap: 10px; }
+.install-actions .primary { flex: 1; }
+#installCard:not([hidden]) + .welcome .welcome-mark { display: none; }
 .welcome-mark { width: 64px; height: 64px; border-radius: 15px; box-shadow: var(--shadow); }
 </style>
 </head>
@@ -400,6 +408,16 @@ body.on-budget .toast { bottom: calc(168px + env(safe-area-inset-bottom, 0px)); 
 
     <!-- MESE -->
     <div class="view" id="viewMese">
+      <section class="card install" id="installCard" hidden aria-labelledby="instTitle">
+        <div class="install-row">
+          <img class="install-icon" src="icon-192.png" alt="" width="52" height="52">
+          <div><b id="instTitle">Installa l'app sul telefono</b><span class="hint" id="installHint"></span></div>
+        </div>
+        <div class="install-actions">
+          <button type="button" class="primary" id="installBtn" hidden>Installa</button>
+          <button type="button" class="ghost-btn" id="installLater">Non ora</button>
+        </div>
+      </section>
       <section class="card welcome" id="welcome" hidden aria-labelledby="welTitle">
         <img class="welcome-mark" src="icon-192.png" alt="" width="64" height="64">
         <h2 class="sec-title" id="welTitle">Benvenuto in Budget mensile</h2>
@@ -799,6 +817,7 @@ body.on-budget .toast { bottom: calc(168px + env(safe-area-inset-bottom, 0px)); 
   }
 
   function drawMese() {
+    drawInstall();
     const fresh = !hasData();
     $('#welcome').hidden = !fresh;
     $('#heroSec').hidden = fresh;
@@ -1460,6 +1479,36 @@ body.on-budget .toast { bottom: calc(168px + env(safe-area-inset-bottom, 0px)); 
     if (S.month === S.lastCur && S.lastCur !== curMonth() && !S.bDirty) S.month = curMonth();
     render();
   });
+
+  /* ===== install on the home screen ===== */
+  let installEvt = null;
+  const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = () => /Android/i.test(navigator.userAgent);
+  function drawInstall() {
+    const card = $('#installCard');
+    const later = Number(LS.get('bm-install-later', 0)) || 0;
+    const show = !isStandalone() && matchMedia('(pointer: coarse)').matches && Date.now() - later > 3 * 864e5;
+    card.hidden = !show;
+    if (!show) return;
+    $('#installBtn').hidden = !installEvt;
+    let hint;
+    if (installEvt) hint = 'Tocca «Installa»: l\'app compare tra le tue app, si apre a schermo intero e funziona anche offline.';
+    else if (isIOS()) hint = 'In Safari tocca Condividi (il quadrato con la freccia) e poi «Aggiungi alla schermata Home». Dopo, apri l\'app dall\'icona e importa lì il backup.';
+    else if (isAndroid()) hint = 'In Chrome tocca il menu ⋮ in alto a destra, poi «Installa app» o «Aggiungi a schermata Home». Se non vedi la voce, apri questo indirizzo direttamente in Chrome.';
+    else hint = 'Dal menu del browser scegli «Installa app» o «Aggiungi a schermata Home».';
+    $('#installHint').textContent = hint;
+  }
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; drawInstall(); });
+  window.addEventListener('appinstalled', () => { installEvt = null; drawInstall(); toast('App installata: la trovi tra le app del telefono'); });
+  $('#installBtn').addEventListener('click', async () => {
+    const ev = installEvt;
+    if (!ev) return;
+    installEvt = null;
+    try { await ev.prompt(); await ev.userChoice; } catch (e) { /* the browser closed the prompt */ }
+    drawInstall();
+  });
+  $('#installLater').addEventListener('click', () => { LS.set('bm-install-later', Date.now()); drawInstall(); });
 
   /* ===== boot ===== */
   S.storageOK = storageWorks();
